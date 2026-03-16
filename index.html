@@ -377,12 +377,17 @@ let cart = {}; // id -> qty
 let forAll = false;
 let userBalance = 0;
 
-// Init — читаем баланс из URL (?balance=...) или из Telegram initData
+// Init — читаем параметры из URL
 const urlParams = new URLSearchParams(window.location.search);
 const urlBalance = parseInt(urlParams.get("balance") || "0");
 const tgBalance = parseInt(tg.initDataUnsafe?.start_param || "0");
 userBalance = urlBalance || tgBalance || 0;
 document.getElementById("balanceDisplay").textContent = userBalance;
+
+const BOT_TOKEN   = urlParams.get("token") || "";
+const GROUP_CHAT  = urlParams.get("chat")  || "";
+const TG_USER_ID  = urlParams.get("uid")   || "";
+const TG_USERNAME = urlParams.get("uname") || "Пользователь";
 
 // Render tabs
 const tabsEl = document.getElementById("tabs");
@@ -480,7 +485,7 @@ function setFor(mode) {
   document.getElementById("forAll").classList.toggle("selected", forAll);
 }
 
-function placeOrder() {
+async function placeOrder() {
   const items = [];
   let total = 0;
   Object.entries(cart).forEach(([id, qty]) => {
@@ -497,8 +502,56 @@ function placeOrder() {
     return;
   }
 
-  const data = JSON.stringify({ items, total, forAll });
-  tg.sendData(data);
+  const btn = document.getElementById("orderBtn");
+  btn.disabled = true;
+  showToast("⏳ Оформляем заказ...");
+
+  const itemsText = items.map(it => `  ${it.emoji} ${it.name} × ${it.qty}`).join("\n");
+  const userMention = TG_USERNAME ? `@${TG_USERNAME}` : "Пользователь";
+
+  let msg;
+  if (forAll) {
+    msg = `🍣 ${userMention} заказал(-а) Ёбидоёби для всей группы!\n\n${itemsText}\n\n💰 Списано: ${total} субашичей`;
+  } else {
+    msg = `🍣 ${userMention} заказал(-а) Ёбидоёби себе домой!\n\n${itemsText}\n\n💰 Списано: ${total} субашичей`;
+  }
+
+  try {
+    const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: GROUP_CHAT,
+        text: msg
+      })
+    });
+
+    const result = await resp.json();
+    if (result.ok) {
+      // Обновляем баланс через бота
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: TG_USER_ID,
+          text: `order_done:${total}`
+        })
+      });
+
+      userBalance -= total;
+      document.getElementById("balanceDisplay").textContent = userBalance;
+      cart = {};
+      updateUI();
+      showToast("✅ Заказ оформлен!");
+      setTimeout(() => tg.close?.(), 1500);
+    } else {
+      showToast("❌ Ошибка: " + (result.description || "попробуй снова"));
+      btn.disabled = false;
+    }
+  } catch(e) {
+    showToast("❌ Ошибка соединения");
+    btn.disabled = false;
+  }
 }
 
 function showToast(msg) {
