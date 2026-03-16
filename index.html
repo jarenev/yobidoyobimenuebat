@@ -476,11 +476,11 @@ const MENU = [
       { id: 100, name: "Соевый соус", emoji: "🫗", price: 1 },
     ]
   },
-  {
+   {
     category: "Тупа рандом",
     items: [
-      { id: 101, name: "15 ЗВЁЗД НИФИГА ЧОТКО", emoji: "⭐", price: 1515 },
-      { id: 101, name: "25 ЗВЁЗД НИФИГА ЧОТКО", emoji: "⭐", price: 2525},
+      { id: 101, name: "15 ЗВЁЗД НИФИГА ЧОТКО", emoji: "⭐️", price: 1515 },
+      { id: 101, name: "25 ЗВЁЗД НИФИГА ЧОТКО", emoji: "⭐️", price: 2525},
     ]
   }
 ];
@@ -597,7 +597,7 @@ function setFor(mode) {
   document.getElementById("forAll").classList.toggle("selected", forAll);
 }
 
-async function placeOrder() {
+function placeOrder() {
   const items = [];
   let total = 0;
   Object.entries(cart).forEach(([id, qty]) => {
@@ -614,56 +614,9 @@ async function placeOrder() {
     return;
   }
 
-  const btn = document.getElementById("orderBtn");
-  btn.disabled = true;
-  showToast("⏳ Оформляем заказ...");
-
-  const itemsText = items.map(it => `  ${it.emoji} ${it.name} × ${it.qty}`).join("\n");
-  const userMention = TG_USERNAME ? `@${TG_USERNAME}` : "Пользователь";
-
-  let msg;
-  if (forAll) {
-    msg = `🍣 ${userMention} заказал(-а) Ёбидоёби для всей группы!\n\n${itemsText}\n\n💰 Списано: ${total} субашичей`;
-  } else {
-    msg = `🍣 ${userMention} заказал(-а) Ёбидоёби себе домой!\n\n${itemsText}\n\n💰 Списано: ${total} субашичей`;
-  }
-
-  try {
-    const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: GROUP_CHAT,
-        text: msg
-      })
-    });
-
-    const result = await resp.json();
-    if (result.ok) {
-      // Обновляем баланс через бота
-      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: TG_USER_ID,
-          text: `order_done:${total}`
-        })
-      });
-
-      userBalance -= total;
-      document.getElementById("balanceDisplay").textContent = userBalance;
-      cart = {};
-      updateUI();
-      showToast("✅ Заказ оформлен!");
-      setTimeout(() => tg.close?.(), 1500);
-    } else {
-      showToast("❌ Ошибка: " + (result.description || "попробуй снова"));
-      btn.disabled = false;
-    }
-  } catch(e) {
-    showToast("❌ Ошибка соединения");
-    btn.disabled = false;
-  }
+  // Отправляем данные боту через WebApp API — он спишет баланс и напишет в чат
+  const data = JSON.stringify({ items, total, forAll });
+  tg.sendData(data);
 }
 
 function showToast(msg) {
