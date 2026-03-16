@@ -318,7 +318,11 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const tg = window.Telegram.WebApp;
+const tg = window.Telegram?.WebApp || {
+  expand: () => {},
+  sendData: (d) => alert("Заказ отправлен!"),
+  initDataUnsafe: {}
+};
 tg.expand();
 
 const MENU = [
@@ -373,9 +377,11 @@ let cart = {}; // id -> qty
 let forAll = false;
 let userBalance = 0;
 
-// Init
-const initData = tg.initDataUnsafe;
-const urlParams = new URLSearchParams(window.location.search); userBalance = parseInt(urlParams.get("balance") || "0") || 0;
+// Init — читаем баланс из URL (?balance=...) или из Telegram initData
+const urlParams = new URLSearchParams(window.location.search);
+const urlBalance = parseInt(urlParams.get("balance") || "0");
+const tgBalance = parseInt(tg.initDataUnsafe?.start_param || "0");
+userBalance = urlBalance || tgBalance || 0;
 document.getElementById("balanceDisplay").textContent = userBalance;
 
 // Render tabs
