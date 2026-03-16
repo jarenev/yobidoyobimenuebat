@@ -375,7 +375,7 @@ let userBalance = 0;
 
 // Init
 const initData = tg.initDataUnsafe;
-userBalance = parseInt(initData?.start_param || "0") || 0;
+const urlParams = new URLSearchParams(window.location.search); userBalance = parseInt(urlParams.get("balance") || "0") || 0;
 document.getElementById("balanceDisplay").textContent = userBalance;
 
 // Render tabs
